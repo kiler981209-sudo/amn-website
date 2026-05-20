@@ -1,0 +1,21 @@
+export default function AdminPage() {
+  return (
+    <main className="adminPage">
+      <section className="adminHero wrap"><div><p className="adminEyebrow">AMN Admin Dashboard</p><h1>사전등록 현황</h1><p>Google Sheets에 저장된 AMN 베타 사전등록 데이터를 실시간으로 확인합니다.</p></div><a className="adminBack" href="/">사이트로 돌아가기</a></section>
+      <section className="wrap adminLogin"><input id="adminKey" placeholder="관리자 키 입력" defaultValue="amn-admin" /><button id="loadAdmin">대시보드 불러오기</button></section>
+      <section className="wrap adminStats"><div className="adminCard"><span>총 등록자</span><strong id="total">-</strong></div><div className="adminCard"><span>오늘 등록자</span><strong id="today">-</strong></div><div className="adminCard"><span>가장 많은 역할</span><strong id="topRole">-</strong></div><div className="adminCard"><span>최근 등록</span><strong id="latest">-</strong></div></section>
+      <section className="wrap adminGrid"><div className="adminPanel"><h2>역할별 통계</h2><div id="roleBars" className="roleBars"></div></div><div className="adminPanel"><h2>일별 등록 추이</h2><div id="dateBars" className="roleBars"></div></div></section>
+      <section className="wrap adminPanel recentPanel"><div className="recentTop"><h2>최근 등록자</h2><button id="downloadCsv">CSV 다운로드</button></div><div className="tableWrap"><table><thead><tr><th>등록일시</th><th>이메일</th><th>역할</th><th>유입경로</th></tr></thead><tbody id="recentRows"><tr><td colSpan="4">관리자 키 입력 후 불러오기를 눌러주세요.</td></tr></tbody></table></div></section>
+      <script dangerouslySetInnerHTML={{__html:`
+        let cachedRecent=[];
+        function toCsv(rows){const header=['등록일시','이메일','역할','유입경로','생성시간'];const body=rows.map(r=>[r.registeredAt||'',r.email||'',r.role||'',r.source||'',r.createdAt||'']);return [header,...body].map(cols=>cols.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');}
+        function downloadCsv(rows){const blob=new Blob(['\ufeff'+toCsv(rows)],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='amn_waitlist_recent.csv';a.click();URL.revokeObjectURL(url);}
+        function renderBars(id,data){const el=document.getElementById(id);const entries=Object.entries(data||{}).sort((a,b)=>b[1]-a[1]);const max=Math.max(...entries.map(x=>x[1]),1);if(!entries.length){el.innerHTML='<p class="empty">데이터가 없습니다.</p>';return;}el.innerHTML=entries.map(([label,value])=>{const width=Math.max(8,Math.round((value/max)*100));return '<div class="barRow"><div class="barLabel"><span>'+label+'</span><b>'+value+'</b></div><div class="barTrack"><div class="barFill" style="width:'+width+'%"></div></div></div>';}).join('');}
+        function renderRecent(rows){const tbody=document.getElementById('recentRows');if(!rows.length){tbody.innerHTML='<tr><td colSpan="4">등록자가 없습니다.</td></tr>';return;}tbody.innerHTML=rows.map(row=>'<tr><td>'+(row.registeredAt||'-')+'</td><td>'+(row.email||'-')+'</td><td>'+(row.role||'-')+'</td><td>'+(row.source||'-')+'</td></tr>').join('');}
+        async function loadDashboard(){const key=document.getElementById('adminKey').value.trim();const button=document.getElementById('loadAdmin');button.textContent='불러오는 중...';button.disabled=true;try{const res=await fetch('/api/admin?key='+encodeURIComponent(key));const data=await res.json();if(!data.ok){alert(data.message||'불러오기에 실패했습니다.');return;}cachedRecent=data.recent||[];document.getElementById('total').textContent=data.total||0;document.getElementById('today').textContent=data.todayCount||0;const roleEntries=Object.entries(data.byRole||{}).sort((a,b)=>b[1]-a[1]);document.getElementById('topRole').textContent=roleEntries[0]?roleEntries[0][0]:'-';document.getElementById('latest').textContent=cachedRecent[0]?(cachedRecent[0].role||'-'):'-';renderBars('roleBars',data.byRole||{});renderBars('dateBars',data.byDate||{});renderRecent(cachedRecent);}catch(err){alert('대시보드 로딩 중 오류가 발생했습니다.');}finally{button.textContent='대시보드 불러오기';button.disabled=false;}}
+        document.getElementById('loadAdmin').addEventListener('click',loadDashboard);
+        document.getElementById('downloadCsv').addEventListener('click',function(){downloadCsv(cachedRecent);});
+      `}} />
+    </main>
+  );
+}
